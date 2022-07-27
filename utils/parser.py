@@ -6,6 +6,14 @@ def get_parser():
     # For Basic
     parser.add_argument('--name', default = 'main', help = '')
 
+    # For Loader
+    parser.add_argument('--sources_path', default = 'datasources', help = '')
+    parser.add_argument('--targets_path', default = 'datatargets', help = '')
+
+    parser.add_argument('--train_file', default = 'train.tsv', help = '')
+    parser.add_argument('--valid_file', default = 'valid.tsv', help = '')
+    parser.add_argument('--test_file' , default = 'test.tsv' , help = '')
+
     # For Module
     parser.add_argument('--emb_dim', type = int, default = 512, help = '')
     parser.add_argument('--hid_dim', type = int, default = 512, help = '')
