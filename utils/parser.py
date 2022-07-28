@@ -30,6 +30,8 @@ def get_parser():
 
     parser.add_argument('--grad_clip', type = float, default = 1, help = '')
 
+    parser.add_argument('--lr', type = float, default = 0.001, help = '')
+
     return parser
 
 if __name__ == '__main__':

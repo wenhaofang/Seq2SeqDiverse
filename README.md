@@ -29,3 +29,11 @@ PYTHONPATH=. python loaders/loader1.py
 ```shell
 PYTHONPATH=. python modules/module1.py
 ```
+
+### Main Process
+
+```shell
+python main.py
+```
+
+You can change the config either in the command line or in the file `utils/parser.py`
