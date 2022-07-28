@@ -37,3 +37,17 @@ python main.py
 ```
 
 You can change the config either in the command line or in the file `utils/parser.py`
+
+Here are the examples:
+
+```shell
+# train
+python main.py \
+    --mode train
+```
+
+```shell
+# test
+python main.py \
+    --mode test
+```

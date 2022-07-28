@@ -70,21 +70,33 @@ optimizer = optim.Adam(module.parameters(), lr = option.lr)
 
 criterion = nn.CrossEntropyLoss(ignore_index = trg_pad_idx)
 
-logger.info('start training!')
-
-best_valid_loss = float('inf')
-
-for epoch in range(option.num_epochs):
-    train_info = train(module, train_loader, criterion, optimizer, device, option.grad_clip)
-    valid_info = valid(module, valid_loader, criterion, optimizer, device, trg_vocab)
-    logger.info(
-        '[Epoch %d] Train Loss: %.4f, Valid Loss: %.4f, Valid BLEU: %.4f' %
-        (epoch, train_info['loss'], valid_info['loss'], valid_info['bleu'])
-    )
-    if  best_valid_loss > valid_info['loss']:
-        best_valid_loss = valid_info['loss']
-        save_checkpoint(save_path, module, optimizer, epoch)
-        save_sample(sample_folder,
-            valid_info['reference_ids'], valid_info['hypothese_ids'],
-            valid_info['reference_wds'], valid_info['hypothese_wds'],
+if  option.mode == 'train':
+    logger.info('start training!')
+    best_valid_loss = float('inf')
+    for epoch in range(option.num_epochs):
+        train_info = train(module, train_loader, criterion, optimizer, device, option.grad_clip)
+        valid_info = valid(module, valid_loader, criterion, optimizer, device, trg_vocab)
+        logger.info(
+            '[Epoch %d] Train Loss: %.4f, Valid Loss: %.4f, Valid BLEU: %.4f' %
+            (epoch, train_info['loss'], valid_info['loss'], valid_info['bleu'])
         )
+        if  best_valid_loss > valid_info['loss']:
+            best_valid_loss = valid_info['loss']
+            save_checkpoint(save_path, module, optimizer, epoch)
+            save_sample(sample_folder,
+                valid_info['reference_ids'], valid_info['hypothese_ids'],
+                valid_info['reference_wds'], valid_info['hypothese_wds'],
+            )
+
+if  option.mode == 'test':
+    logger.info('start testing!')
+    best_epoch = load_checkpoint(save_path, module, optimizer)
+    valid_info = valid(module, test_loader, criterion, optimizer, device, trg_vocab)
+    logger.info(
+        '[Best Epoch %d] Test Loss: %.4f, Test BLEU: %.4f' %
+        (best_epoch, valid_info['loss'], valid_info['bleu'])
+    )
+    save_sample(result_folder,
+        valid_info['reference_ids'], valid_info['hypothese_ids'],
+        valid_info['reference_wds'], valid_info['hypothese_wds'],
+    )

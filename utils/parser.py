@@ -6,6 +6,8 @@ def get_parser():
     # For Basic
     parser.add_argument('--name', default = 'main', help = '')
 
+    parser.add_argument('--mode', default = 'train', choices = ['train', 'test'], help = '')
+
     # For Loader
     parser.add_argument('--sources_path', default = 'datasources', help = '')
     parser.add_argument('--targets_path', default = 'datatargets', help = '')
@@ -31,6 +33,9 @@ def get_parser():
     parser.add_argument('--grad_clip', type = float, default = 1, help = '')
 
     parser.add_argument('--lr', type = float, default = 0.001, help = '')
+
+    # For Test
+    parser.add_argument('--decoding_algorithm', default = '', choices = [], help = '')
 
     return parser
 
