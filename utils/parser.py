@@ -14,6 +14,10 @@ def get_parser():
     parser.add_argument('--valid_file', default = 'valid.tsv', help = '')
     parser.add_argument('--test_file' , default = 'test.tsv' , help = '')
 
+    parser.add_argument('--min_freq', type = int, default = 4, help = '')
+    parser.add_argument('--max_numb', type = int, default = 12000, help = '')
+    parser.add_argument('--max_seq_len', type = int, default = 32, help = '')
+
     # For Module
     parser.add_argument('--emb_dim', type = int, default = 512, help = '')
     parser.add_argument('--hid_dim', type = int, default = 512, help = '')

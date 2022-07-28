@@ -2,11 +2,11 @@
 
 This is a Seq2Seq model with multiple diverse decoding algorithms.
 
-Datasets
+Datasets:
 
 * `dataset1`: [Quora](https://data.deepai.org/quora_question_pairs.zip)
 
-Models
+Models:
 
 * `model1`: Seq2Seq
 
@@ -17,6 +17,12 @@ PYTHONPATH=. python dataprocess/process.py
 ```
 
 ### Unit Test
+
+* for loader
+
+```shell
+PYTHONPATH=. python loaders/loader1.py
+```
 
 * for module
 
