@@ -136,7 +136,7 @@ def get_loader(option):
 
     train_loader = DataLoader(train_dataset, batch_size = option.batch_size, shuffle = True , collate_fn = lambda x: collate_fn(x, SRC_PAD_ID, TRG_PAD_ID))
     valid_loader = DataLoader(valid_dataset, batch_size = option.batch_size, shuffle = True , collate_fn = lambda x: collate_fn(x, SRC_PAD_ID, TRG_PAD_ID))
-    test_loader  = DataLoader(test_dataset , batch_size = option.batch_size, shuffle = False, collate_fn = lambda x: collate_fn(x, SRC_PAD_ID, TRG_PAD_ID))
+    test_loader  = DataLoader(test_dataset , batch_size = 1                , shuffle = False, collate_fn = lambda x: collate_fn(x, SRC_PAD_ID, TRG_PAD_ID))
 
     return (train_dataset.get_src_voacb(), train_dataset.get_trg_vocab(), train_loader, valid_loader, test_loader)
 

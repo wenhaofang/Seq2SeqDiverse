@@ -91,3 +91,31 @@ def valid(module, loader, criterion, optimizer, device, trg_vocab):
         'reference_wds': reference_wds,
         'hypothese_wds': hypothese_wds,
     }
+
+def test(module, loader, max_len, device, trg_vocab, decoding_algorithm, decoding_config):
+    module.eval()
+    reference_ids = []
+    hypothese_ids = []
+    reference_wds = []
+    hypothese_wds = []
+    SOS_ID = trg_vocab['word2id'].get(trg_vocab['special']['SOS_TOKEN'])
+    EOS_ID = trg_vocab['word2id'].get(trg_vocab['special']['EOS_TOKEN'])
+    with torch.no_grad():
+        for mini_batch in tqdm.tqdm(loader):
+            sources , targets, source_length = mini_batch
+            sources = sources.to(device)
+            targets = targets.to(device)
+            targets = targets[0, 1: -1].tolist()
+            outputs = module.predict(sources, source_length, max_len, SOS_ID, EOS_ID, decoding_algorithm, **decoding_config)
+            hypothese_ids.append(outputs)
+            reference_ids.append(targets)
+            hypothese_wds.append(list(map(lambda _id: trg_vocab['id2word'].get(_id), outputs)))
+            reference_wds.append(list(map(lambda _id: trg_vocab['id2word'].get(_id), targets)))
+    bleu4 = corpus_bleu([[reference_id] for reference_id in reference_ids], hypothese_ids)
+    return {
+        'bleu': bleu4,
+        'reference_ids': reference_ids,
+        'hypothese_ids': hypothese_ids,
+        'reference_wds': reference_wds,
+        'hypothese_wds': hypothese_wds,
+    }

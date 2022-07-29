@@ -46,7 +46,7 @@ from loaders.loader1 import get_loader as get_loader1 # Quora
 
 from modules.module1 import get_module as get_module1 # Seq2Seq
 
-from utils.misc import train, valid, save_checkpoint, load_checkpoint, save_sample
+from utils.misc import train, valid, test, save_checkpoint, load_checkpoint, save_sample
 
 device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
 
@@ -91,12 +91,16 @@ if  option.mode == 'train':
 if  option.mode == 'test':
     logger.info('start testing!')
     best_epoch = load_checkpoint(save_path, module, optimizer)
-    valid_info = valid(module, test_loader, criterion, optimizer, device, trg_vocab)
+    test_conf = {'T': option.T} if option.decoding_algorithm == 'temperature_sampling' else \
+                {'K': option.K} if option.decoding_algorithm == 'top_k_sampling' else \
+                {'P': option.P} if option.decoding_algorithm == 'top_p_sampling' else \
+                {}
+    test_info = test(module, test_loader, option.max_seq_len, device, trg_vocab, option.decoding_algorithm, test_conf)
     logger.info(
-        '[Best Epoch %d] Test Loss: %.4f, Test BLEU: %.4f' %
-        (best_epoch, valid_info['loss'], valid_info['bleu'])
+        '[Best Epoch %d] Test BLEU: %.4f using %s' %
+        (best_epoch, test_info['bleu'], option.decoding_algorithm)
     )
     save_sample(result_folder,
-        valid_info['reference_ids'], valid_info['hypothese_ids'],
-        valid_info['reference_wds'], valid_info['hypothese_wds'],
+        test_info['reference_ids'], test_info['hypothese_ids'],
+        test_info['reference_wds'], test_info['hypothese_wds'],
     )

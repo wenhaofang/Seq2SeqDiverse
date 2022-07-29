@@ -115,6 +115,108 @@ class Seq2Seq(nn.Module):
             decoder_outputs[:, t] = decoder_output
         return decoder_outputs
 
+    def predict(self, src, src_len, max_len, sos_idx, eos_idx, decoding_algorithm, T = None, K = None, P = None):
+        '''
+        Params:
+            src    : Torch Tensor (batch_size, src_len)
+            src_len: Torch Tensor (batch_size)
+            max_len: Int
+            sos_idx: Int
+            eos_idx: Int
+            decoding_algorithm: String
+        '''
+        assert src.shape[0] == 1
+        assert decoding_algorithm in ['temperature_sampling', 'top_k_sampling', 'top_p_sampling']
+
+        if  decoding_algorithm == 'temperature_sampling':
+            assert T != None
+        if  decoding_algorithm == 'top_k_sampling':
+            assert K != None
+        if  decoding_algorithm == 'top_p_sampling':
+            assert P != None
+
+        encoder_outputs , encoder_hiddens = self.encoder(src, src_len)
+        decoder_hiddens = encoder_hiddens
+        encoder_masked  = src != self.src_pad_idx
+        decoder_inputs  = torch.full((src.size(0),), sos_idx, dtype = src.dtype, device = src.device)
+
+        outputs = []
+
+        if  (
+            decoding_algorithm == 'temperature_sampling' or
+            decoding_algorithm == 'top_k_sampling' or
+            decoding_algorithm == 'top_p_sampling' # nucleus_sampling
+        ):
+            for _ in range(max_len):
+                decoder_output , decoder_hiddens = self.decoder(decoder_inputs, decoder_hiddens, encoder_outputs, encoder_masked)
+                decoder_inputs = self.t_dis(decoder_output, T) if decoding_algorithm == 'temperature_sampling' else \
+                                 self.k_dis(decoder_output, K) if decoding_algorithm == 'top_k_sampling' else \
+                                 self.p_dis(decoder_output, P) if decoding_algorithm == 'top_p_sampling' else \
+                                 None
+
+                if  eos_idx != decoder_inputs.item():
+                    outputs.append(decoder_inputs.item())
+                else:
+                    break
+
+        return outputs
+
+    def t_dis(self, logits, t):
+        '''
+        Params:
+            logits: Torch Tensor (batch_size, vocab_size)
+            t:
+                t 越小，分布越突出，特殊情况 t → 0, greedy sampling
+                t 越大，分布越平缓，特殊情况 t → ∞, random sampling
+        Return:
+            output: Torch Tensor (batch_size)
+        '''
+        assert t > 0
+
+        return torch.multinomial(torch.softmax(logits / t, dim = -1), num_samples = 1).view(-1)
+
+    def k_dis(self, logits, k):
+        '''
+        Params:
+            logits: Torch Tensor (batch_size, vocab_size), k: 概率降序排列，按序取值使其累加数量大于等于 k
+        Return:
+            output: Torch Tensor (batch_size)
+        '''
+        assert k > 0
+
+        sorted_value, sorted_index = torch.sort(logits, dim = -1, descending = True)
+
+        arange_tensor = torch.arange(logits.shape[1]      , device = logits.device).unsqueeze(0).repeat(logits.shape[0], 1)
+        kvalue_tensor = torch.tensor(logits.shape[1] * [k], device = logits.device).unsqueeze(0).repeat(logits.shape[0], 1)
+        masked_tensor = arange_tensor >= kvalue_tensor
+
+        sorted_logits = torch.masked_scatter(sorted_value, masked_tensor, torch.full((sorted_value.shape), -1e13, device = logits.device))
+        sorted_output = torch.multinomial(torch.softmax(sorted_logits, dim = -1), num_samples = 1)
+        output = torch.gather(sorted_index, dim = 1, index = sorted_output).view(-1)
+
+        return output
+
+    def p_dis(self, logits, p):
+        '''
+        Params:
+            logits: Torch Tensor (batch_size, vocab_size), p: 概率降序排列，按序取值使其累加概率大于等于 p
+        Return:
+            output: Torch Tensor (batch_size)
+        '''
+        assert 0 < p <= 1
+
+        sorted_value, sorted_index = torch.sort(logits, dim = -1, descending = True)
+
+        sofmax_tensor = torch.softmax(sorted_value , dim = -1)
+        cumsum_tensor = torch.cumsum (sofmax_tensor, dim = -1)
+        masked_tensor = cumsum_tensor > p
+
+        sorted_logits = torch.masked_scatter(sorted_value, masked_tensor, torch.full((sorted_value.shape), -1e13, device = logits.device))
+        sorted_output = torch.multinomial(torch.softmax(sorted_logits, dim = -1), num_samples = 1)
+        output = torch.gather(sorted_index, dim = 1, index = sorted_output).view(-1)
+
+        return output
+
 def get_module(
     option,
     src_vocab_size, src_pad_idx,
@@ -132,11 +234,14 @@ if  __name__ == '__main__':
     parser = get_parser()
     option = parser.parse_args()
 
-    src_vocab_size = 20000
-    trg_vocab_size = 30000
+    src_vocab_size = 10000
+    trg_vocab_size = 12000
 
-    src_pad_idx = 19999
-    trg_pad_idx = 29999
+    src_pad_idx = 0
+    trg_pad_idx = 0
+
+    trg_sos_idx = 3
+    trg_eos_idx = 2
 
     src_seq_len = 18
     trg_seq_len = 20
@@ -150,3 +255,15 @@ if  __name__ == '__main__':
     outputs = module(src, src_len, trg, 0.5)
 
     print(outputs.shape) # (batch_size, trg_seq_len, trg_vocab_size)
+
+    src = torch.randint(0, src_vocab_size, (1, src_seq_len)).long()
+    trg = torch.randint(0, trg_vocab_size, (1, trg_seq_len)).long()
+    src_len = torch.tensor([src_seq_len] *  1).long()
+
+    t_outputs = module.predict(src, src_len, option.max_seq_len, trg_sos_idx, trg_eos_idx, 'temperature_sampling', T = option.T)
+    k_outputs = module.predict(src, src_len, option.max_seq_len, trg_sos_idx, trg_eos_idx, 'top_k_sampling', K = option.K)
+    p_outputs = module.predict(src, src_len, option.max_seq_len, trg_sos_idx, trg_eos_idx, 'top_p_sampling', P = option.P)
+
+    print(type(t_outputs), len(t_outputs)) # List
+    print(type(k_outputs), len(k_outputs)) # List
+    print(type(p_outputs), len(p_outputs)) # List

@@ -47,7 +47,25 @@ python main.py \
 ```
 
 ```shell
-# test
+# test with temperature_sampling
 python main.py \
-    --mode test
+    --mode test \
+    --decoding_algorithm temperature_sampling \
+    --T 1e-13
+```
+
+```shell
+# test with top_k_sampling
+python main.py \
+    --mode test \
+    --decoding_algorithm top_k_sampling \
+    --K 10
+```
+
+```shell
+# test with top_p_sampling
+python main.py \
+    --mode test \
+    --decoding_algorithm top_p_sampling \
+    --P 0.3
 ```
