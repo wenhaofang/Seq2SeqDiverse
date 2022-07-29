@@ -72,7 +72,7 @@ criterion = nn.CrossEntropyLoss(ignore_index = trg_pad_idx)
 
 if  option.mode == 'train':
     logger.info('start training!')
-    best_valid_loss = float('inf')
+    best_valid_loss = float('inf') # bleu?
     for epoch in range(option.num_epochs):
         train_info = train(module, train_loader, criterion, optimizer, device, option.grad_clip)
         valid_info = valid(module, valid_loader, criterion, optimizer, device, trg_vocab)
