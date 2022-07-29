@@ -94,6 +94,7 @@ if  option.mode == 'test':
     test_conf = {'T': option.T} if option.decoding_algorithm == 'temperature_sampling' else \
                 {'K': option.K} if option.decoding_algorithm == 'top_k_sampling' else \
                 {'P': option.P} if option.decoding_algorithm == 'top_p_sampling' else \
+                {'B': option.B} if option.decoding_algorithm == 'beam_search' else \
                 {}
     test_info = test(module, test_loader, option.max_seq_len, device, trg_vocab, option.decoding_algorithm, test_conf)
     logger.info(

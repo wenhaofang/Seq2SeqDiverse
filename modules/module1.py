@@ -81,6 +81,22 @@ class Decoder(nn.Module):
         predictions = self.transform(torch.cat((decoder_outputs.squeeze(1), embedded.squeeze(1), weight.squeeze(1)), dim = 1))
         return predictions, decoder_hiddens
 
+class BeamSearchNode():
+    def __init__( self, idx, pro, hid, prev_node):
+        self.idx = idx
+        self.pro = pro
+        self.hid = hid
+        self.prev_node = prev_node
+
+        if  prev_node is None:
+            self.sent_pro = pro
+            self.sent_len = 1
+        else:
+            self.sent_pro = prev_node.sent_pro + pro
+            self.sent_len = prev_node.sent_len + 1
+
+        self.sent_matrix = self.sent_pro / self.sent_len
+
 class Seq2Seq(nn.Module):
     def __init__( self,
         enc_vocab_size, enc_pad_idx, enc_emb_dim, enc_hid_dim, enc_dropout,
@@ -115,7 +131,7 @@ class Seq2Seq(nn.Module):
             decoder_outputs[:, t] = decoder_output
         return decoder_outputs
 
-    def predict(self, src, src_len, max_len, sos_idx, eos_idx, decoding_algorithm, T = None, K = None, P = None):
+    def predict(self, src, src_len, max_len, sos_idx, eos_idx, decoding_algorithm, T = None, K = None, P = None, B = None):
         '''
         Params:
             src    : Torch Tensor (batch_size, src_len)
@@ -126,7 +142,7 @@ class Seq2Seq(nn.Module):
             decoding_algorithm: String
         '''
         assert src.shape[0] == 1
-        assert decoding_algorithm in ['temperature_sampling', 'top_k_sampling', 'top_p_sampling']
+        assert decoding_algorithm in ['temperature_sampling', 'top_k_sampling', 'top_p_sampling', 'beam_search']
 
         if  decoding_algorithm == 'temperature_sampling':
             assert T != None
@@ -134,6 +150,8 @@ class Seq2Seq(nn.Module):
             assert K != None
         if  decoding_algorithm == 'top_p_sampling':
             assert P != None
+        if  decoding_algorithm == 'beam_search':
+            assert B != None
 
         encoder_outputs , encoder_hiddens = self.encoder(src, src_len)
         decoder_hiddens = encoder_hiddens
@@ -145,7 +163,7 @@ class Seq2Seq(nn.Module):
         if  (
             decoding_algorithm == 'temperature_sampling' or
             decoding_algorithm == 'top_k_sampling' or
-            decoding_algorithm == 'top_p_sampling' # nucleus_sampling
+            decoding_algorithm == 'top_p_sampling'
         ):
             for _ in range(max_len):
                 decoder_output , decoder_hiddens = self.decoder(decoder_inputs, decoder_hiddens, encoder_outputs, encoder_masked)
@@ -158,6 +176,51 @@ class Seq2Seq(nn.Module):
                     outputs.append(decoder_inputs.item())
                 else:
                     break
+
+        if  (
+            decoding_algorithm == 'beam_search'
+        ):
+            assert B >= 1
+
+            bst_nodes = [] # best
+            end_nodes = []
+            decoding_step = 0
+
+            decoder_output , decoder_hiddens = self.decoder(decoder_inputs, decoder_hiddens, encoder_outputs, encoder_masked)
+            decoder_output = decoder_output.squeeze(0).log_softmax(0)
+            topk_p, topk_i = torch.topk(decoder_output, B)
+            for i, p in zip(topk_i, topk_p):
+                bst_nodes.append(BeamSearchNode(i, p, decoder_hiddens, None))
+
+            while len(end_nodes) < B:
+                tmp_nodes = []
+                decoding_step += 1
+
+                for node in bst_nodes:
+                    decoder_output , decoder_hiddens = self.decoder(node.idx.reshape(-1), node.hid, encoder_outputs, encoder_masked)
+                    decoder_output = decoder_output.squeeze(0).log_softmax(0)
+                    topk_p, topk_i = torch.topk(decoder_output, B - len(end_nodes))
+                    for i, p in zip(topk_i, topk_p):
+                        tmp_nodes.append(BeamSearchNode(i, p, decoder_hiddens, node))
+
+                tmp_nodes = sorted(tmp_nodes, key = lambda x: x.sent_matrix, reverse = True)[:B - len(end_nodes)]
+
+                if  decoding_step == max_len - 1:
+                    end_nodes.extend(tmp_nodes)
+                else:
+                    bst_nodes.clear()
+                    for node in tmp_nodes:
+                        if  node.idx == eos_idx:
+                            end_nodes.append(node)
+                        else:
+                            bst_nodes.append(node)
+
+            bst_node = sorted(end_nodes, key = lambda x: x.sent_matrix, reverse = True)[0]
+            tmp_outs = []
+            while bst_node is not None:
+                tmp_outs.append(bst_node.idx.item())
+                bst_node = bst_node.prev_node
+            outputs = tmp_outs[::-1]
 
         return outputs
 
@@ -190,7 +253,7 @@ class Seq2Seq(nn.Module):
         kvalue_tensor = torch.tensor(logits.shape[1] * [k], device = logits.device).unsqueeze(0).repeat(logits.shape[0], 1)
         masked_tensor = arange_tensor >= kvalue_tensor
 
-        sorted_logits = torch.masked_scatter(sorted_value, masked_tensor, torch.full((sorted_value.shape), -1e13, device = logits.device))
+        sorted_logits = torch.masked_scatter(sorted_value, masked_tensor, torch.full(sorted_value.shape, -1e13, device = logits.device))
         sorted_output = torch.multinomial(torch.softmax(sorted_logits, dim = -1), num_samples = 1)
         output = torch.gather(sorted_index, dim = 1, index = sorted_output).view(-1)
 
@@ -211,7 +274,7 @@ class Seq2Seq(nn.Module):
         cumsum_tensor = torch.cumsum (sofmax_tensor, dim = -1)
         masked_tensor = cumsum_tensor > p
 
-        sorted_logits = torch.masked_scatter(sorted_value, masked_tensor, torch.full((sorted_value.shape), -1e13, device = logits.device))
+        sorted_logits = torch.masked_scatter(sorted_value, masked_tensor, torch.full(sorted_value.shape, -1e13, device = logits.device))
         sorted_output = torch.multinomial(torch.softmax(sorted_logits, dim = -1), num_samples = 1)
         output = torch.gather(sorted_index, dim = 1, index = sorted_output).view(-1)
 
@@ -263,7 +326,9 @@ if  __name__ == '__main__':
     t_outputs = module.predict(src, src_len, option.max_seq_len, trg_sos_idx, trg_eos_idx, 'temperature_sampling', T = option.T)
     k_outputs = module.predict(src, src_len, option.max_seq_len, trg_sos_idx, trg_eos_idx, 'top_k_sampling', K = option.K)
     p_outputs = module.predict(src, src_len, option.max_seq_len, trg_sos_idx, trg_eos_idx, 'top_p_sampling', P = option.P)
+    b_outputs = module.predict(src, src_len, option.max_seq_len, trg_sos_idx, trg_eos_idx, 'beam_search', B = option.B)
 
     print(type(t_outputs), len(t_outputs)) # List
     print(type(k_outputs), len(k_outputs)) # List
     print(type(p_outputs), len(p_outputs)) # List
+    print(type(b_outputs), len(b_outputs)) # List

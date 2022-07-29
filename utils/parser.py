@@ -35,11 +35,12 @@ def get_parser():
     parser.add_argument('--lr', type = float, default = 0.0001, help = '') # !
 
     # For Test
-    parser.add_argument('--decoding_algorithm', default = 'temperature_sampling', choices = ['temperature_sampling', 'top_k_sampling', 'top_p_sampling'], help = '')
+    parser.add_argument('--decoding_algorithm', default = 'temperature_sampling', choices = ['temperature_sampling', 'top_k_sampling', 'top_p_sampling', 'beam_search'], help = '')
 
     parser.add_argument('--T', type = float, default = 1e-13, help = '')
     parser.add_argument('--K', type = int, default = 10, help = '')
     parser.add_argument('--P', type = float, default = 0.3, help = '')
+    parser.add_argument('--B', type = int, default = 5, help = '')
 
     return parser
 

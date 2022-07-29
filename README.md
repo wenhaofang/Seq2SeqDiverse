@@ -69,3 +69,11 @@ python main.py \
     --decoding_algorithm top_p_sampling \
     --P 0.3
 ```
+
+```shell
+# test with beam_search
+python main.py \
+    --mode test \
+    --decoding_algorithm beam_search \
+    --B 5
+```
