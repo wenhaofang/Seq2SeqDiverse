@@ -141,17 +141,14 @@ class Seq2Seq(nn.Module):
             eos_idx: Int
             decoding_algorithm: String
         '''
-        assert src.shape[0] == 1
-        assert decoding_algorithm in ['temperature_sampling', 'top_k_sampling', 'top_p_sampling', 'beam_search']
-
-        if  decoding_algorithm == 'temperature_sampling':
-            assert T != None
-        if  decoding_algorithm == 'top_k_sampling':
-            assert K != None
-        if  decoding_algorithm == 'top_p_sampling':
-            assert P != None
-        if  decoding_algorithm == 'beam_search':
-            assert B != None
+        assert src.shape[0] == 1 #  batch size must be 1
+        assert (
+            (decoding_algorithm == 'temperature_sampling' and T != None) or
+            (decoding_algorithm == 'top_k_sampling'       and K != None) or
+            (decoding_algorithm == 'top_p_sampling'       and P != None) or
+            (decoding_algorithm == 'beam_search'          and B != None) or
+            False
+        )
 
         encoder_outputs , encoder_hiddens = self.encoder(src, src_len)
         decoder_hiddens = encoder_hiddens
@@ -215,12 +212,12 @@ class Seq2Seq(nn.Module):
                         else:
                             bst_nodes.append(node)
 
-            bst_node = sorted(end_nodes, key = lambda x: x.sent_matrix, reverse = True)[0]
+            bst_node = sorted(end_nodes, key = lambda x: x.sent_matrix, reverse = True)[0] # top1
             tmp_outs = []
             while bst_node is not None:
                 tmp_outs.append(bst_node.idx.item())
                 bst_node = bst_node.prev_node
-            outputs = tmp_outs[::-1]
+            outputs = tmp_outs[::-1][:-1]
 
         return outputs
 

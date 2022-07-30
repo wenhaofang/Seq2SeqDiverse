@@ -40,7 +40,7 @@ def get_parser():
     parser.add_argument('--T', type = float, default = 1e-13, help = '')
     parser.add_argument('--K', type = int, default = 10, help = '')
     parser.add_argument('--P', type = float, default = 0.3, help = '')
-    parser.add_argument('--B', type = int, default = 5, help = '')
+    parser.add_argument('--B', type = int, default = 4, help = '')
 
     return parser
 

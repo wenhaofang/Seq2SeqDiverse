@@ -10,6 +10,18 @@ Models:
 
 * `model1`: Seq2Seq
 
+Decoding Algorithms:
+
+* Temperature Sampling
+
+* Top-K Sampling
+
+* Top-P Sampling / Nucleus Sampling
+
+* Beam Search
+
+* Diverse Beam Search (TODO)
+
 ### Data Process
 
 ```shell
@@ -75,5 +87,5 @@ python main.py \
 python main.py \
     --mode test \
     --decoding_algorithm beam_search \
-    --B 5
+    --B 4
 ```
